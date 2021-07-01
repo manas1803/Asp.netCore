@@ -1,0 +1,99 @@
+ASP.Net Core Notes :- 
+
+** Setting Up the DataBase Connection :-
+- The first step is to create a model and there we need to make certain annotations which we feel will be required while adding data to db
+- The next step is to create a file for application dbContext. This file can be created in a folder as Data. And then we create the constructor for this in which we mention the DbContext which is first inherited by this file. The DbContext needs to be installed in the nuget packages.
+- Then at last we add a DbSet with the Generic type of the model which we wish to add to the database.
+- The next thing is we need to add the connection string in the appSettings.json which we read the database server, database type password and name and other such variables
+- Then after these things are done now we need to tell our api that we are using the Entity Framework to add the data. So at the Startup.cs file in services we add another service to AddDbContext and inside that we add the ApplicationDbContext(The file name which we will give but we generally give this file name.) The using lambda expression we add the options and use them to add UseSqlServer.
+- Now this UseSqlServer we need to install from Nuget Package Manager Tool and once this is done we call the Configuration.ConnectionString and we pass the variable name we have mentioned in the appSettings
+- When this is done the next thing we have to do is run migration. For that we need to first install one more package EntityCore
+- After this in console of Application we type AddMigration and any suitable name. This creates a file in Migration folder and then we type Update Migration and then everything runs
+
+** Creating Repository and Using DBContext For CRUD
+- Now our next job is to create a repository for our Model
+- We create a repo folder inside which we create one iRepo folder for interfaces of those repos and then repos there only.
+- First we create an interface and inside that interface we add various crud methods we will be using Like Get,Create,Update,Delete and also Save and IfExists
+- Then we create the repo which can implement this interface. In that repo we implement all these methods
+- Now in the repo of the file we create one constructor and inside that constructor we call the ApplicationDbContext as dependency injection and then we use that variable for the crud operations
+- Now that variable will call all the Tables that we added in DbContextFile of Application DbContext and indirectly in the Db.
+- We use that Table in which we want to apply the operations
+- Then we use the various methods to do the job, like create update, remove,Select,OrderBy and in Save we use SaveChanges which returns a whole number if change is done.
+
+```C# Code For Repository
+	public class NationalParkRepository : INationalPark
+    {
+        private readonly ApplicationDbContext _db;
+        public NationalParkRepository(ApplicationDbContext db)
+        {
+            _db = db;
+        }
+        public bool CreateNationalPark(NationalPark national)
+        {
+            _db.Add(national);
+            return Save();
+        }
+
+        public bool DeleteNationalPark(NationalPark national)
+        {
+            _db.Remove(national);
+            return Save();
+        }
+
+        public NationalPark GetNationalPark(int nationalParkId)
+        {
+            return _db.NationalParks.FirstOrDefault(e => e.Id == nationalParkId);
+        }
+
+        public ICollection<NationalPark> GetNationalParks()
+        {
+            return _db.NationalParks.Select(e => e).OrderBy(a=>a.Name).ToList();
+        }
+
+        public bool NationalParkExists(string name)
+        {
+            bool value = _db.NationalParks.Any(a => a.Name.ToLower().Trim() == name.ToLower().Trim());
+            return value;
+        }
+
+        public bool NationalParkExists(int id)
+        {
+            bool value = _db.NationalParks.Any(a => a.Id==id);
+            return value;
+        }
+
+        public bool Save()
+        {
+            return _db.SaveChanges() >= 0 ? true : false;
+        }
+
+        public bool UpdateNationalPark(NationalPark national)
+        {
+            _db.Update(national);
+            return Save();
+        }
+    }
+```
+- Now at last we need to add this to the startup.cs file at services as Scoped
+
+
+** DTOS
+- DTOS are basically the model classes which we use to create a bridge between the amount of data we want to share with the user by allowing only some part of that dto and then using automapper we map that with the actually model.
+- So for this first we add the automapper and the automapper dependency injection packages from nuget package
+- Then we add the Dto folder inside the model and then we create one dto class file which is exactly like the model file except for some methods that we don't want to show
+- Then we need to map these two files together so for that we create a Mapper folder inside which we create a mapper file and that file implements the Profile interface. Using the CReateMap method we define the 2 classes model and dto class inside the constructor of this mapper file.
+- Then after this being done we add this automapper in services.AutoMapper and inside this we add typeOf and mention the name of the mapper file.
+
+** Creating API
+
+- Now we create a national park controller for this. In the controller we first inject the national park repository interface and the mapper file.
+- Next we use dependency injection to add those
+- Then we create any of the methods we want HttpGet HttpPost HttpDelete and HttpPatch .
+- These annotations we mention at the top in [] before the method
+- Inside these annotations we can specify if we expect any other parameter like id and also we can give a temp variable name to the whole method so that we can use it anywhere in the code.
+- Important thing here to note is we use ModelState.AddError to add a key value pair error which is a string and then in return we add StatusCode(StatusCodes.(Any code that if fiiting here),ModelState)
+- When post while creating if we want to get the data back we use CreateAtRoute Return type and add the parametrs accordingly.
+
+** API Documentation
+- For this we first install the SwashBuckleAspNEtCore Nuget PAckage manager
+- Then in the services we add it as SwaggerGen which takes options as lambda expression and in options we can further add SwaggerDoc which 2 params one the name and then next MicrosoftOpenApiModelsOpenApiInfo 
